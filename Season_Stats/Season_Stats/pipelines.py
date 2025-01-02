@@ -10,16 +10,28 @@ import csv
 
 class SeasonStatsPipeline:
     def open_spider(self, spider):
-        self.file = open("output.csv", "w", newline="", encoding= "utf-8")
-        self.csv_writer = None
+        self.files = {
+            "output": open("output.csv", "w", newline="", encoding= "utf-8"),
+            "Stats_labels": open("Stats_labels.csv", "w", newline="", encoding= "utf-8")
+        }
+        self.csv_writers = {
+            "output": None,  # Placeholder for the writer to output.csv
+            "Stats_labels": None  # Placeholder for the writer to Stats_labels.csv
+        }
 
     def close_spider(self,spider):
-        self.file.close()
+        for file in self.files.values():
+            file.close()
 
     def process_item(self, item, spider):
-        if not self.csv_writer:
-            self.csv_writer = csv.DictWriter(self.file, fieldnames = item.keys())
-            self.csv_writer.writeheader()
+        if len(item) == 10:
+            file_key = "Stats_labels"
+        else:
+            file_key = "output"
+        if not self.csv_writers[file_key]:
+            self.csv_writers[file_key] = csv.DictWriter(self.files[file_key], fieldnames=item.keys())
+            self.csv_writers[file_key].writeheader()
 
-        self.csv_writer.writerow(item)
+            # Write the item to the appropriate file
+        self.csv_writers[file_key].writerow(item)
         return item

@@ -1,4 +1,5 @@
 import scrapy
+import math
 
 class DropdownSpider(scrapy.Spider):
     name = "SeasonStatsSpider"
@@ -7,33 +8,65 @@ class DropdownSpider(scrapy.Spider):
 
     def parse(self, response):
         player_names = response.css("div#stats_season_data tbody td.name-col a::text").getall()
-        qb_num = len(response.css("div#stats_season_data div.table-responsive:nth-of-type(1) tbody td.name-col a::text").getall())
-        rb_num= len(response.css("div#stats_season_data div.table-responsive:nth-of-type(2) tbody td.name-col a::text").getall())
-        wr_num= len(response.css("div#stats_season_data div.table-responsive:nth-of-type(3) tbody td.name-col a::text").getall())
-        te_num= len(response.css("div#stats_season_data div.table-responsive:nth-of-type(4) tbody td.name-col a::text").getall())
-        dt_num= len(response.css("div#stats_season_data div.table-responsive:nth-of-type(5) tbody td.name-col a::text").getall())
-        de_num= len(response.css("div#stats_season_data div.table-responsive:nth-of-type(6) tbody td.name-col a::text").getall())
-        lb_num= len(response.css("div#stats_season_data div.table-responsive:nth-of-type(7) tbody td.name-col a::text").getall())
-        s_num= len(response.css("div#stats_season_data div.table-responsive:nth-of-type(8) tbody td.name-col a::text").getall())
-        k_num= len(response.css("div#stats_season_data div.table-responsive:nth-of-type(9) tbody td.name-col a::text").getall())
-        stats = response.css("div#stats_season_data tbody td.data-col::text").getall()
-        #cleaned_stats = stats.strip()
+        #player_team= response.css("")
+        player_pos = ["QB","RB","WR","TE", "DT", "DE", "LB", 'CB', "S", "K" ]
+        #dictionary containing "QB:2,RB:3,etc
+        team_pos = {
+            position:[len(response.css(f"div#stats_season_data div.table-responsive:nth-of-type({index+1}) tbody td.name-col a::text").getall()), response.css(f"div#stats_season_data div.table-responsive:nth-of-type({index+1}) tbody td.data-col::text").getall()]
+            for index, position in enumerate(player_pos, start=0)
+        }
+        #leads to Stats_labels to hold the values of each stat
+        pos_stat_label = {
+            position: response.css(
+                           f"div#stats_season_data div.table-responsive:nth-of-type({index + 1}) thead th.data-header::text").getall()
+            for index, position in enumerate(player_pos, start=0)
+        }
+        yield pos_stat_label
 
-        i=1
-        pos = ""
+        #max len is known for all values
+        max_len_stat = 12
+        for position, list in team_pos.items():
+            stat_list = list[1]
+            len_stat = int(len(stat_list)/list[0])
+            diff = max_len_stat-len_stat
+            if len_stat< max_len_stat:
+                place = len_stat
+                for i in range((diff)*list[0]):
+                    team_pos[position][1].insert(place, 'NA')
+                    if ((i+1)%diff==0 and i!=0) or (i==0 and diff ==1):
+                        place+= (len_stat)
+                    place+=1
+
+        #yield team_pos
+
+        i =1
+        final_dict = {}
         for name in player_names:
-            if i<=qb_num:
-                pos = "QB"
-            elif i <= qb_num+rb_num:
-                pos = "RB"
-            elif i<= qb_num+rb_num+wr_num:
-                pos = "WR"
-            elif i <= qb_num + rb_num + wr_num + te_num:
-                pos = "TE"
-            i +=1
-            yield {"Name":name, "Pos":pos}
+            cum_count = 0
+            for position, count in team_pos.items():
+                cum_count+=count[0]
+                if i <= cum_count:
+                    name = name.strip()
+                    final_dict["Names"] = name
+                    final_dict["Pos"] = position
+                    for index, label in enumerate(count[1]):
+                        y= 12
+                        x= (i-cum_count+count[0]-1)*y
+                        if index >=x and index <x+y:
+                            label =label.strip()
+                            final_dict[index-x]= label
+                    yield final_dict
+                    break
+            i+=1
 
-        '''
+#stats = response.css("div#stats_season_data tbody td.data-col::text").getall()
+    #cleaned_stats = stats.strip(
+
+
+
+'''
+
+        
         for value, name in zip(team_values, team_names):
             team_url = f"https://www.footballguys.com/stats/season/teams?team={value}&year=2023"
             yield scrapy.Request(url=team_url, callback=self.parse_team)
